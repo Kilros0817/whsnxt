@@ -42,16 +42,6 @@ function ChatScreen({ navigation, userData, route }) {
   const [token, setToken] = useState(token);
   const [meetingId, setMeetingId] = useState('');
 
-  const onSend = useCallback((messages = []) => {
-    setMessages((previousMessages) =>
-      GiftedChat.append(previousMessages, messages),
-    );
-    const { _id, createdAt, text, user } = messages[0];
-    const room = userID + '-' + route.params?.receiver;
-
-    addDoc(collection(db, 'chats'), { _id, createdAt, text, user, room });
-  }, []);
-
   const videoCall = async () => {
     const meetingId = await createMeeting();
     setMeetingId(meetingId);
@@ -95,32 +85,44 @@ function ChatScreen({ navigation, userData, route }) {
       `${route.params?.receiver}-${userData.id}`,
     ]),
   );
-  const unsubscribe = onSnapshot(q, (snapshot) =>
-    setMessages(
-      snapshot.docs.map((doc) => {
-        return {
-          _id: doc.data()._id,
-          createdAt: doc.data().createdAt.toDate(),
-          text: doc.data().text,
-          user: doc.data().user,
-        };
-      }),
-    ),
-  );
 
-  const initChat = async () => {
-    await getReceiverData();
+  const onSend = useCallback((messages = []) => {
+    setMessages((previousMessages) =>
+      GiftedChat.append(previousMessages, messages),
+    );
+    const { _id, createdAt, text, user } = messages[0];
+    const room = userID + '-' + route.params?.receiver;
+
+    addDoc(collection(db, 'chats'), { _id, createdAt, text, user, room });
+  }, []);
+
+  useEffect(() => {
     signInWithEmailAndPassword(auth, userData.email, userData.email).catch(
       (error) => {
         const errorMessage = error.message;
         alert(errorMessage);
       },
     );
-    unsubscribe();
-  };
 
-  useEffect(() => {
-    initChat();
+    const q = query(collection(db, 'chats'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) =>
+      setMessages(
+        snapshot.docs.map((doc) => {
+          return {
+            _id: doc.data()._id,
+            createdAt: doc.data().createdAt.toDate(),
+            text: doc.data().text,
+            user: doc.data().user,
+          };
+        }),
+      ),
+    );
+
+    return () => {
+      getReceiverData();
+
+      unsubscribe();
+    };
   }, []);
 
   return (
