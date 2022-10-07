@@ -11,7 +11,7 @@ import {
   Platform,
   TextInput,
   Alert,
-  TouchableOpacity
+  TouchableOpacity,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import * as Progress from 'react-native-progress';
@@ -22,7 +22,7 @@ import { calcTime, ConvertToUrlForm, httpHeaders } from '../../Util/Util';
 import { accountUrl, imageUrl, postUrl } from '../../constants/BaseUrl';
 import { ActivityIndicator } from 'react-native-paper';
 import { removeUserData } from '../../redux/actions/AccountsActions';
-import { connectFirestoreEmulator } from 'firebase/firestore';
+import GetLocation from 'react-native-get-location';
 
 const { width, height } = Dimensions.get('screen');
 
@@ -48,7 +48,9 @@ function Home({ navigation, route, userData, accountType }) {
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
   const [hideLists, setHideLists] = useState([]);
   const [notifylen, setNotifyLen] = useState(0);
-  onClickMore = () => { };
+  const [hot5, setHot5] = useState([]);
+
+  onClickMore = () => {};
 
   useEffect(() => {
     if (userData == undefined) {
@@ -58,36 +60,65 @@ function Home({ navigation, route, userData, accountType }) {
       });
       navigation.navigate('SignIn');
     }
+    getHot5();
     fetchPosts();
     getNotification();
   }, []);
 
-  const getNotification = async () =>{
-    const obj =  ConvertToUrlForm({
-      func: "fetch_user_notifications",
-      user_id: userData.id
-    });
-    const data =  await fetch(accountUrl, { 
-     method: 'POST', 
-     headers: {
-       Accept: 'application/json',
-       'Content-Type': 'application/x-www-form-urlencoded',
-     }, 
-     body: obj 
-   })
-     .then(response => response.json())
-     .then(responseData => {
-         console.log("responseData", responseData);
-         const data = responseData && responseData.data?responseData.data:[];
-         return data;
-     })
-     .catch(err => {
-       console.log("catch", err);
-     });
-    setNotifyLen(data !==undefined?data.length:0)
- }
+  const getHot5 = async () => {
+    let reqdata = new FormData();
+    reqdata.append('user_id', userData.id);
+    if (userData.role == 1) reqdata.append('func', 'hot5_talent');
+    else reqdata.append('func', 'hot5_users');
 
-  fetchPosts = async () => {
+    fetch(accountUrl, {
+      method: 'post',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'multipart/form-data',
+      },
+      body: reqdata,
+    })
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.error == false) {
+          console.log(res.data, '===========================');
+          setHot5(res.data);
+        } else {
+          Toast.show({
+            type: 'error',
+            text1: 'Sorry, try again.',
+          });
+        }
+      });
+  };
+
+  const getNotification = async () => {
+    const obj = ConvertToUrlForm({
+      func: 'fetch_user_notifications',
+      user_id: userData.id,
+    });
+    const data = await fetch(accountUrl, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: obj,
+    })
+      .then((response) => response.json())
+      .then((responseData) => {
+        console.log('responseData', responseData);
+        const data = responseData && responseData.data ? responseData.data : [];
+        return data;
+      })
+      .catch((err) => {
+        console.log('catch', err);
+      });
+    setNotifyLen(data !== undefined ? data.length : 0);
+  };
+
+  const fetchPosts = async () => {
     let followers = [];
     let friends = [];
     let postUsers = [];
@@ -107,7 +138,7 @@ function Home({ navigation, route, userData, accountType }) {
         body: followInfo,
       });
       let responseData3 = await response3.json();
-      console.log("responseData3", responseData3);
+      console.log('=============================', responseData3);
       for (const item in responseData3) {
         if (!isNaN(item)) {
           followers.push(responseData3[item]);
@@ -130,30 +161,34 @@ function Home({ navigation, route, userData, accountType }) {
           friends.push(responseData4[item]);
         }
       }
-      postUsers = [...followers.map(e => e.target_user), ...friends.map(e => e.target_user), userData.id];
-      
-      await Promise.all(postUsers.map(async (oneUser) => {
-        let postData = new FormData();
-        postData.append('func', 'posts');
-        postData.append('user_id', oneUser);
-        let response = await fetch(postUrl, {
-          method: 'post',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'multipart/form-data',
-          },
-          body: postData,
-        });
-        let responseData = await response.json();
-        // console.log("data", responseData.data);
-        for (const item in responseData.data) {
-          if (!isNaN(parseInt(item))) {
-            _posts.push(responseData.data[item]);
+      postUsers = [
+        ...followers.map((e) => e.target_user),
+        ...friends.map((e) => e.target_user),
+        userData.id,
+      ];
+
+      await Promise.all(
+        postUsers.map(async (oneUser) => {
+          let postData = new FormData();
+          postData.append('func', 'posts');
+          postData.append('user_id', oneUser);
+          let response = await fetch(postUrl, {
+            method: 'post',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'multipart/form-data',
+            },
+            body: postData,
+          });
+          let responseData = await response.json();
+          for (const item in responseData.data) {
+            if (!isNaN(parseInt(item))) {
+              _posts.push(responseData.data[item]);
+            }
           }
-        }
-      }))
+        }),
+      );
       let totalPostsLength = _posts.length;
-    //  console.log("_posts", _posts);
       if (totalPostsLength > 0) {
         _posts.map(async (_post, index) => {
           let postId = new FormData();
@@ -168,10 +203,12 @@ function Home({ navigation, route, userData, accountType }) {
             body: postId,
           });
           let responseData1 = await response1.json();
-          post_details.push({ ..._post, ...responseData1["0"] });
+          post_details.push({ ..._post, ...responseData1['0'] });
           post_details.sort((a, b) => {
-            return new Date(b.modified).getTime() - new Date(a.modified).getTime()
-          })
+            return (
+              new Date(b.modified).getTime() - new Date(a.modified).getTime()
+            );
+          });
           let totalPostsDetailsLength = post_details.length;
           if (totalPostsDetailsLength > 0) {
             post_details.map(async (post, indexDetail) => {
@@ -187,26 +224,41 @@ function Home({ navigation, route, userData, accountType }) {
                 body: fetchUserInfo,
               });
               let responseData2 = await response2.json();
-              console.log('user',responseData2["data"][0])
-              post.userInfo = { ...responseData2["data"][0] };
-              if(indexDetail == totalPostsDetailsLength - 1 && index == totalPostsLength - 1) {
-                setPosts(post_details.filter(e => hideLists.findIndex(i => i == e.post_id) == -1));
+              console.log('user', responseData2['data'][0]);
+              post.userInfo = { ...responseData2['data'][0] };
+              if (
+                indexDetail == totalPostsDetailsLength - 1 &&
+                index == totalPostsLength - 1
+              ) {
+                setPosts(
+                  post_details.filter(
+                    (e) => hideLists.findIndex((i) => i == e.post_id) == -1,
+                  ),
+                );
                 setPostMenuvisibles(new Array(post_details.length).fill(false));
                 setCommentsVisibles(new Array(post_details.length).fill(false));
                 setIsLoadingPosts(false);
               }
-            })
+            });
           } else {
             if (index == totalPostsLength - 1) {
-              setPosts(post_details.filter(e => hideLists.findIndex(i => i == e.post_id) == -1));
+              setPosts(
+                post_details.filter(
+                  (e) => hideLists.findIndex((i) => i == e.post_id) == -1,
+                ),
+              );
               setPostMenuvisibles(new Array(post_details.length).fill(false));
               setCommentsVisibles(new Array(post_details.length).fill(false));
               setIsLoadingPosts(false);
             }
           }
-        })
+        });
       } else {
-        setPosts(post_details.filter(e => hideLists.findIndex(i => i == e.post_id) == -1));
+        setPosts(
+          post_details.filter(
+            (e) => hideLists.findIndex((i) => i == e.post_id) == -1,
+          ),
+        );
         setPostMenuvisibles(new Array(post_details.length).fill(false));
         setCommentsVisibles(new Array(post_details.length).fill(false));
         setIsLoadingPosts(false);
@@ -220,7 +272,7 @@ function Home({ navigation, route, userData, accountType }) {
       });
       setIsLoadingPosts(false);
     }
-  }
+  };
 
   useEffect(() => {
     if (route.params?.createPost) {
@@ -228,7 +280,7 @@ function Home({ navigation, route, userData, accountType }) {
     }
   }, [route]);
 
-  animate = () => {
+  const animate = () => {
     setUploadVisible(true);
     let progress = 0;
     setUploadProgress(progress);
@@ -252,24 +304,23 @@ function Home({ navigation, route, userData, accountType }) {
     }, 0);
   };
 
-  setComments = (e, index) => {
+  const setComments = (e, index) => {
     let oldCommentContents = commentContents.concat();
-    let indexOfComment = oldCommentContents.findIndex(e => e.id == index);
+    let indexOfComment = oldCommentContents.findIndex((e) => e.id == index);
     if (indexOfComment == -1) {
       oldCommentContents.push({
         id: index,
         content: e,
-      })
+      });
     } else {
       oldCommentContents[indexOfComment].content = e;
     }
     setCommentContents(oldCommentContents);
-  }
+  };
 
-  onPostComment = (index, postId) => {
-    let indexOfComment = commentContents.findIndex(e => e.id == index);
-    if(indexOfComment == -1)
-    {
+  const onPostComment = (index, postId) => {
+    let indexOfComment = commentContents.findIndex((e) => e.id == index);
+    if (indexOfComment == -1) {
       Alert.alert('Error', 'Enter invalid');
       return;
     }
@@ -288,15 +339,17 @@ function Home({ navigation, route, userData, accountType }) {
         'Content-Type': 'multipart/form-data',
       },
       body: formdata,
-    }).then(response => response.json())
-      .then(responseData => {
+    })
+      .then((response) => response.json())
+      .then((responseData) => {
         // console.log(responseData);
         fetchPosts();
-      }).catch(err => console.log(err));
-  }
+      })
+      .catch((err) => console.log(err));
+  };
 
-  onUpdateLike = (index, postId, likes) => {
-    let l = Number(likes)+1;
+  const onUpdateLike = (index, postId, likes) => {
+    let l = Number(likes) + 1;
     let formdata = new FormData();
     formdata.append('func', 'update_likes');
     formdata.append('user_id', userData.id);
@@ -309,15 +362,17 @@ function Home({ navigation, route, userData, accountType }) {
         'Content-Type': 'multipart/form-data',
       },
       body: formdata,
-    }).then(response => response.json())
-      .then(responseData => {
+    })
+      .then((response) => response.json())
+      .then((responseData) => {
         fetchPosts();
-      }).catch(err => console.log(err));
-  }
-  
-  onUpdateBookmark = (index, postId, bookmark) => {
+      })
+      .catch((err) => console.log(err));
+  };
+
+  const onUpdateBookmark = (index, postId, bookmark) => {
     let formdata = new FormData();
-    let b = Number(bookmark)+1;
+    let b = Number(bookmark) + 1;
     formdata.append('func', 'update_bookmark');
     formdata.append('user_id', userData.id);
     formdata.append('post_id', postId);
@@ -329,21 +384,23 @@ function Home({ navigation, route, userData, accountType }) {
         'Content-Type': 'multipart/form-data',
       },
       body: formdata,
-    }).then(response => response.json())
-      .then(responseData => {
+    })
+      .then((response) => response.json())
+      .then((responseData) => {
         fetchPosts();
-      }).catch(err => console.log(err));
-  }
+      })
+      .catch((err) => console.log(err));
+  };
 
-  onToggleMenu = () => {
+  const onToggleMenu = () => {
     setMenuVisible(!menuVisible);
   };
 
-  onToggleBottomMenu = () => {
+  const onToggleBottomMenu = () => {
     setBottomMenuVisible(!bottomMenuVisible);
   };
 
-  onTogglePostMenu = (id = 0) => {
+  const onTogglePostMenu = (id = 0) => {
     let oldPostMenuVisibles = postMenuVisibles.concat();
     if (oldPostMenuVisibles[id] == false) {
       oldPostMenuVisibles.fill(false);
@@ -352,7 +409,7 @@ function Home({ navigation, route, userData, accountType }) {
     setPostMenuvisibles(oldPostMenuVisibles);
   };
 
-  onToggleComments = (id = 0) => {
+  const onToggleComments = (id = 0) => {
     let oldCommentsVisibles = commentsVisibles.concat();
     if (oldCommentsVisibles[id] == false) {
       oldCommentsVisibles.fill(false);
@@ -361,12 +418,12 @@ function Home({ navigation, route, userData, accountType }) {
     setCommentsVisibles(oldCommentsVisibles);
   };
 
-  onLogOut = () => {
+  const onLogOut = () => {
     removeUserData();
     navigation.navigate('Auth');
-  }
+  };
 
-  onEditPost = (key, content) => {
+  const onEditPost = (key, content) => {
     Alert.alert(
       '',
       'Are you sure?',
@@ -377,48 +434,50 @@ function Home({ navigation, route, userData, accountType }) {
             navigation.navigate('CreatePost', {
               editMode: true,
               content: content,
-              key: key
-            })
-          }
+              key: key,
+            });
+          },
         },
         {
           text: 'No',
-        }
+        },
       ],
       {
-        cancelable: true
-      }
-    )
-  }
+        cancelable: true,
+      },
+    );
+  };
 
-  onDeletePost = (key) => {
+  const onDeletePost = (key) => {
     Alert.alert(
       '',
       'Are you sure?',
       [
         {
           text: 'Yes',
-          onPress: () => sendRqPost('del', key)
+          onPress: () => sendRqPost('del', key),
         },
         {
           text: 'No',
-        }
+        },
       ],
       {
-        cancelable: true
-      }
-    )
-  }
+        cancelable: true,
+      },
+    );
+  };
 
-  onUnFollow = (key) => {
+  const onUnFollow = (key) => {
     Toast.show({
       type: 'error',
-      text1: 'not implemented yet.'
-    })
-  }
+      text1: 'not implemented yet.',
+    });
+  };
 
-  onHidePost = (key) => {
-    Alert.alert('', 'Are you sure?',
+  const onHidePost = (key) => {
+    Alert.alert(
+      '',
+      'Are you sure?',
       [
         {
           text: 'Yes',
@@ -427,18 +486,24 @@ function Home({ navigation, route, userData, accountType }) {
             oldHideLists.push(key);
             setHideLists(oldHideLists);
             let oldPosts = posts.concat();
-            setPosts(oldPosts.filter(e => oldHideLists.findIndex(i => i == e.post_id) == -1));
-          }
+            setPosts(
+              oldPosts.filter(
+                (e) => oldHideLists.findIndex((i) => i == e.post_id) == -1,
+              ),
+            );
+          },
         },
         {
-          text: 'No'
-        }
-      ], {
-      cancelable: true
-    })
-  }
+          text: 'No',
+        },
+      ],
+      {
+        cancelable: true,
+      },
+    );
+  };
 
-  sendRqPost = (action, key) => {
+  const sendRqPost = (action, key) => {
     if (action == 'del') {
       let delPostInfo = new FormData();
       delPostInfo.append('func', 'delete_post');
@@ -450,22 +515,25 @@ function Home({ navigation, route, userData, accountType }) {
           'Content-Type': 'multipart/form-data',
         },
         body: delPostInfo,
-      }).then(response => response.json()).then(responseData => {
-        // console.log(responseData);
-        Toast.show({
-          type: 'success',
-          text1: 'Removed successfully.'
-        });
-        fetchPosts();
-      }).catch(err => {
-        console.log(err);
-        Toast.show({
-          type: 'error',
-          text1: 'Sorry, Failed. Try again later.'
-        })
       })
+        .then((response) => response.json())
+        .then((responseData) => {
+          // console.log(responseData);
+          Toast.show({
+            type: 'success',
+            text1: 'Removed successfully.',
+          });
+          fetchPosts();
+        })
+        .catch((err) => {
+          console.log(err);
+          Toast.show({
+            type: 'error',
+            text1: 'Sorry, Failed. Try again later.',
+          });
+        });
     }
-  }
+  };
 
   const SideMenu = () => {
     return (
@@ -477,7 +545,11 @@ function Home({ navigation, route, userData, accountType }) {
           >
             <Image source={require('./i_close_black.png')} />
           </View>
-          <Pressable onPress={() => navigation.navigate('EditProfile', {data: userData})}>
+          <Pressable
+            onPress={() =>
+              navigation.navigate('EditProfile', { data: userData })
+            }
+          >
             <Text style={styles.fontMenu}>Edit Profile</Text>
           </Pressable>
           {accountType == 2 && (
@@ -490,7 +562,9 @@ function Home({ navigation, route, userData, accountType }) {
               <Text style={styles.fontMenu}>Calendar</Text>
             </Pressable>
           )}
-          <Pressable onPress={() => navigation.navigate('Store', { id: userData.id})}>
+          <Pressable
+            onPress={() => navigation.navigate('Store', { id: userData.id })}
+          >
             <Text style={styles.fontMenu}>Store</Text>
           </Pressable>
           <Pressable onPress={() => navigation.navigate('PurchasedItems')}>
@@ -505,7 +579,9 @@ function Home({ navigation, route, userData, accountType }) {
           <Pressable onPress={() => navigation.navigate('PrivacyPolicy')}>
             <Text style={styles.fontMenu}>Privacy Policy</Text>
           </Pressable>
-          <Pressable onPress={() => navigation.navigate('Setting', {data: userData})}>
+          <Pressable
+            onPress={() => navigation.navigate('Setting', { data: userData })}
+          >
             <Text style={styles.fontMenu}>Setting</Text>
           </Pressable>
           <Pressable onPress={() => onLogOut()}>
@@ -518,28 +594,32 @@ function Home({ navigation, route, userData, accountType }) {
 
   const getUserImage = (uri) => {
     if (uri != undefined && uri != '') {
-      return <Image
-        source={{ uri: uri }}
-        style={{
-          alignSelf: 'center',
-          width: 20,
-          aspectRatio: 1,
-          height: 'auto',
-        }}
-      />
+      return (
+        <Image
+          source={{ uri: uri }}
+          style={{
+            alignSelf: 'center',
+            width: 20,
+            aspectRatio: 1,
+            height: 'auto',
+          }}
+        />
+      );
     } else {
-      return <Image
-        source={require('../../assets/img/default-avatar.png')}
-        style={{
-          alignSelf: 'center',
-          width: 20,
-          aspectRatio: 1,
-          height: 'auto',
-          borderRadius: 50,
-        }}
-      />
+      return (
+        <Image
+          source={require('../../assets/img/default-avatar.png')}
+          style={{
+            alignSelf: 'center',
+            width: 20,
+            aspectRatio: 1,
+            height: 'auto',
+            borderRadius: 50,
+          }}
+        />
+      );
     }
-  }
+  };
 
   const onePost = (data, key) => {
     let comments = [];
@@ -552,32 +632,67 @@ function Home({ navigation, route, userData, accountType }) {
         }
       }
     }
-    like_num = comments.length?comments[0]?.likes:0;
-    bookmark_num = comments.length?comments[0]?.bookmark:0;
+    like_num = comments.length ? comments[0]?.likes : 0;
+    bookmark_num = comments.length ? comments[0]?.bookmark : 0;
     let postTime = calcTime(data.modified);
-    let displayTime = (postTime[0] > 0 ? postTime[0] + ' day ago' : (postTime[1] > 0 ? postTime[1] + ' hours ago' : (postTime[2] > 0 ? postTime[2] + ' minutes ago' : 'Just Now')))
+    let displayTime =
+      postTime[0] > 0
+        ? postTime[0] + ' day ago'
+        : postTime[1] > 0
+        ? postTime[1] + ' hours ago'
+        : postTime[2] > 0
+        ? postTime[2] + ' minutes ago'
+        : 'Just Now';
     const userAvatar = data.userInfo?.profile_pic ? (
-      <Image
-        source={{ uri: imageUrl +"profile_pic/"+ data.userInfo?.profile_pic }}
+      <View
         style={{
           alignSelf: 'center',
-          width: 45,
+          width: 55,
           aspectRatio: 1,
           borderRadius: 50,
+          borderColor: '#1455F5',
+          borderWidth: 3,
+          padding: 1,
           height: 'auto',
+          alignItems: 'center',
         }}
-      />
+      >
+        <Image
+          source={{
+            uri: imageUrl + 'profile_pic/' + data.userInfo?.profile_pic,
+          }}
+          style={{
+            width: 47,
+            aspectRatio: 1,
+            borderRadius: 50,
+            height: 'auto',
+          }}
+        />
+      </View>
     ) : (
-      <Image
-        source={require('../../assets/img/default-avatar.png')}
+      <View
         style={{
           alignSelf: 'center',
-          width: 45,
+          width: 55,
           aspectRatio: 1,
-          height: 'auto',
           borderRadius: 50,
+          borderColor: '#1455F5',
+          borderWidth: 3,
+          padding: 1,
+          height: 'auto',
+          alignItems: 'center',
         }}
-      />
+      >
+        <Image
+          source={require('../../assets/img/default-avatar.png')}
+          style={{
+            width: 47,
+            aspectRatio: 1,
+            borderRadius: 50,
+            height: 'auto',
+          }}
+        />
+      </View>
     );
     return (
       <View style={{ paddingHorizontal: 20, marginTop: 30 }} key={key}>
@@ -591,7 +706,14 @@ function Home({ navigation, route, userData, accountType }) {
         >
           {userAvatar}
           <View style={{ ...styles.columnStyle, marginLeft: 20 }}>
-            <Text style={{ color: 'orange', fontStyle: 'italic' }}>{data.userInfo?.first_name + ' ' + data.userInfo?.last_name + '(' + data.userInfo?.dob + ')'}</Text>
+            <Text style={{ color: 'white' }}>
+              {data.userInfo?.first_name +
+                ' ' +
+                data.userInfo?.last_name +
+                '(' +
+                data.userInfo?.dob +
+                ')'}
+            </Text>
             <Text style={styles.Txt9010}>{displayTime}</Text>
           </View>
           <Image
@@ -624,7 +746,10 @@ function Home({ navigation, route, userData, accountType }) {
                     source={require('./i_eyehide.png')}
                     style={{ alignSelf: 'center' }}
                   />
-                  <View style={{ ...styles.columnStyle, marginLeft: 20 }} onTouchEnd={() => onHidePost(data.post_id)}>
+                  <View
+                    style={{ ...styles.columnStyle, marginLeft: 20 }}
+                    onTouchEnd={() => onHidePost(data.post_id)}
+                  >
                     <Text>Hide Post</Text>
                     <Text style={{ fontSize: 10 }}>
                       See fewer posts like this.
@@ -658,7 +783,10 @@ function Home({ navigation, route, userData, accountType }) {
                     source={require('./i_user_delete.png')}
                     style={{ alignSelf: 'center' }}
                   />
-                  <View style={{ ...styles.columnStyle, marginLeft: 20 }} onTouchEnd={() => onUnFollow(data.user_id)}>
+                  <View
+                    style={{ ...styles.columnStyle, marginLeft: 20 }}
+                    onTouchEnd={() => onUnFollow(data.user_id)}
+                  >
                     <Text>Unfollow</Text>
                     <Text style={{ fontSize: 10 }}>
                       Stop seeing post from the user.
@@ -682,21 +810,34 @@ function Home({ navigation, route, userData, accountType }) {
                   paddingLeft: 40,
                 }}
               >
-                <View style={{ ...styles.rowStyle, padding: 10, marginVertical: 5 }} onTouchEnd={() => onEditPost(data.id, data.content)}>
+                <View
+                  style={{ ...styles.rowStyle, padding: 10, marginVertical: 5 }}
+                  onTouchEnd={() => onEditPost(data.id, data.content)}
+                >
                   <Image
                     source={require('./i_edit.png')}
-                    style={{ alignSelf: 'center', width: 24, height: 24, tintColor: 'blue' }}
+                    style={{
+                      alignSelf: 'center',
+                      width: 24,
+                      height: 24,
+                      tintColor: 'blue',
+                    }}
                   />
                   <View style={{ ...styles.columnStyle, marginLeft: 20 }} on>
                     <Text style={{ fontSize: 14 }}>Edit Post</Text>
                   </View>
                 </View>
-                <View style={{ ...styles.rowStyle, padding: 10, marginVertical: 5 }}>
+                <View
+                  style={{ ...styles.rowStyle, padding: 10, marginVertical: 5 }}
+                >
                   <Image
                     source={require('./i_warning.png')}
                     style={{ alignSelf: 'center', tintColor: 'red' }}
                   />
-                  <View style={{ ...styles.columnStyle, marginLeft: 20 }} onTouchEnd={() => onDeletePost(data.id)}>
+                  <View
+                    style={{ ...styles.columnStyle, marginLeft: 20 }}
+                    onTouchEnd={() => onDeletePost(data.id)}
+                  >
                     <Text style={{ fontSize: 14 }}>Delete post</Text>
                   </View>
                 </View>
@@ -719,7 +860,12 @@ function Home({ navigation, route, userData, accountType }) {
           }}
         >
           <View>
-            <TouchableOpacity activeOpacity={0.5} onPress={()=>{onUpdateLike(key, data.post_id, like_num)}}>
+            <TouchableOpacity
+              activeOpacity={0.5}
+              onPress={() => {
+                onUpdateLike(key, data.post_id, like_num);
+              }}
+            >
               <Image
                 source={require('./i_heart_white.png')}
                 style={styles.footerIcon}
@@ -736,12 +882,19 @@ function Home({ navigation, route, userData, accountType }) {
             <Text style={styles.fontWhite}>{comments?.length}</Text>
           </View>
           <View>
-            <TouchableOpacity activeOpacity={0.5} onPress={()=>{onUpdateBookmark(key, data.post_id, bookmark_num)}}>
+            <TouchableOpacity
+              activeOpacity={0.5}
+              onPress={() => {
+                onUpdateBookmark(key, data.post_id, bookmark_num);
+              }}
+            >
               <Image
                 source={require('./i_bookmark_white.png')}
                 style={{ ...styles.footerIcon, width: 40 }}
-                />
-              <Text style={{color: '#fff', textAlign: 'center'}}>{bookmark_num}</Text>
+              />
+              <Text style={{ color: '#fff', textAlign: 'center' }}>
+                {bookmark_num}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -755,29 +908,88 @@ function Home({ navigation, route, userData, accountType }) {
               paddingHorizontal: 20,
               borderColor: 'white',
               borderRadius: 10,
-              borderWidth: 2
+              borderWidth: 2,
             }}
           >
             {comments.map((comment, key) => {
               return (
-                <View key={key} style={{ flexDirection: 'row', borderColor: 'white', borderWidth: 2, borderRadius: 10, width: '100%', marginVertical: 10, padding: 10 }}>
+                <View
+                  key={key}
+                  style={{
+                    flexDirection: 'row',
+                    borderColor: 'white',
+                    borderWidth: 2,
+                    borderRadius: 10,
+                    width: '100%',
+                    marginVertical: 10,
+                    padding: 10,
+                  }}
+                >
                   {getUserImage(comment.profile_pic)}
-                  <Text style={{ color: 'orange', marginLeft: 10, width: '20%', fontSize: 12, textAlignVertical: 'center', textAlign: 'center', fontStyle: 'italic' }}>{comment.first_name + ' ' + comment.last_name}</Text>
-                  <Text style={{ color: 'white', marginLeft: 10, fontSize: 12, flex: 1, textAlignVertical: 'center' }}>{comment.comment.length > 0 ? comment.comment : 'No Comment.'}</Text>
+                  <Text
+                    style={{
+                      color: 'orange',
+                      marginLeft: 10,
+                      width: '20%',
+                      fontSize: 12,
+                      textAlignVertical: 'center',
+                      textAlign: 'center',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    {comment.first_name + ' ' + comment.last_name}
+                  </Text>
+                  <Text
+                    style={{
+                      color: 'white',
+                      marginLeft: 10,
+                      fontSize: 12,
+                      flex: 1,
+                      textAlignVertical: 'center',
+                    }}
+                  >
+                    {comment.comment.length > 0
+                      ? comment.comment
+                      : 'No Comment.'}
+                  </Text>
                 </View>
-              )
+              );
             })}
             <TextInput
               multiline={true}
               numberOfLines={5}
-              style={{ color: 'white', textAlignVertical: 'top', borderRadius: 10, borderColor: 'white', borderWidth: 3, width: '100%', marginTop: 20 }}
+              style={{
+                color: 'white',
+                textAlignVertical: 'top',
+                borderRadius: 10,
+                borderColor: 'white',
+                borderWidth: 3,
+                width: '100%',
+                marginTop: 20,
+              }}
               placeholder=" Type here..."
               selectionColor={'orange'}
               placeholderTextColor={'#fff2f0'}
               onChangeText={(e) => setComments(e, key)}
             />
-            <View style={{ backgroundColor: '#1455F5', borderRadius: 15, width: '100%', marginBottom: 10 }} onTouchEnd={() => onPostComment(key, data.id)}>
-              <Text style={{ color: 'white', textAlign: 'center', paddingVertical: 10 }}>Post a Comment</Text>
+            <View
+              style={{
+                backgroundColor: '#1455F5',
+                borderRadius: 15,
+                width: '100%',
+                marginBottom: 10,
+              }}
+              onTouchEnd={() => onPostComment(key, data.id)}
+            >
+              <Text
+                style={{
+                  color: 'white',
+                  textAlign: 'center',
+                  paddingVertical: 10,
+                }}
+              >
+                Post a Comment
+              </Text>
             </View>
           </View>
         ) : null}
@@ -794,6 +1006,7 @@ function Home({ navigation, route, userData, accountType }) {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
+            marginVertical: 15,
           }}
         >
           <Image
@@ -816,12 +1029,13 @@ function Home({ navigation, route, userData, accountType }) {
             display: 'flex',
             flexDirection: 'row',
             alignItems: 'center',
+            marginBottom: 10,
           }}
         >
           <Text style={styles.Txt840}>Hot5</Text>
           <Image
             source={require('./emojione_fire.png')}
-            style={styles.emojione_fire}
+            style={styles.EmojioneFire}
           ></Image>
         </View>
         <View
@@ -830,94 +1044,90 @@ function Home({ navigation, route, userData, accountType }) {
             flexDirection: 'row',
             justifyContent: 'space-between',
           }}
-          onTouchEnd={() => navigation.navigate('Hot5', { id: userData.id})}
         >
-          <Image
-            source={require('./hotImage1.png')}
-            style={styles.hotImage}
-          ></Image>
-          <Image
-            source={require('./hotImage2.png')}
-            style={styles.hotImage}
-          ></Image>
-          <Image
-            source={require('./hotImage3.png')}
-            style={styles.hotImage}
-          ></Image>
-          <Image
-            source={require('./hotImage4.png')}
-            style={styles.hotImage}
-          ></Image>
-          <Image
-            source={require('./hotImgae5.png')}
-            style={styles.hotImage}
-          ></Image>
+          {hot5.map((user, index) => (
+            <View
+              onTouchEnd={() =>
+                navigation.navigate('Profile', { userId: user.target_user })
+              }
+            >
+              <ImageBackground
+                source={require('./hotBack.png')}
+                style={styles.hotBack}
+                key={index}
+              >
+                <Image
+                  source={{
+                    uri: imageUrl + 'profile_pic/' + user.profile_pic,
+                  }}
+                  style={styles.hotImage}
+                />
+                <Image
+                  source={require('./emojione_fire.png')}
+                  style={{
+                    width: 14,
+                    height: 14,
+                    position: 'absolute',
+                    left: 17,
+                    top: 18,
+                  }}
+                />
+                <View
+                  style={{
+                    position: 'absolute',
+                    bottom: 20,
+                    textAlign: 'center',
+                  }}
+                >
+                  <Text
+                    style={{
+                      backgroundColor: '#1455F5',
+                      borderRadius: 10,
+                      width: 60,
+                      paddingHorizontal: 15,
+                      color: 'white',
+                    }}
+                    numberOfLines={1}
+                  >
+                    {user.username}
+                  </Text>
+                </View>
+              </ImageBackground>
+            </View>
+          ))}
         </View>
-        {isLoadingPosts ? <View style={{ width: '100%', justifyContent: 'center', height: height - 200 }}>
-          <ActivityIndicator color="white" size="large" style={{ alignSelf: 'center' }} />
-        </View> : <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
-          {posts.map((post, key) => onePost(post, key))}
-          {posts.length == 0 && <Text style={{ color: 'white', textAlign: 'center', flex: 1, marginTop: 200, fontSize: 20 }}>No Posts</Text>}
-          {/* <View style={{ paddingHorizontal: 20, marginTop: 30 }}>
-            <View
-              style={{
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginBottom: 10,
-              }}
-            >
-              <Image source={require('./featured_talent2.png')}></Image>
-              <View style={{ ...styles.columnStyle, marginLeft: 20 }}>
-                <Text style={{ color: 'white' }}>
-                  Featured_Talent(Rock Music)
-                </Text>
-                <Text style={styles.Txt9010}>
-                  Based on your preferences here’s an artist you may like
-                </Text>
-              </View>
-              <Image
-                source={require('./i_three_dot.png')}
-                style={{ position: 'absolute', right: 10 }}
-              />
-            </View>
-            <Image
-              source={require('./featured_talent2_1.png')}
-              style={{ width: '100%', borderRadius: 10, marginTop: 10 }}
-            ></Image>
-            <View
-              style={{
-                ...styles.rowStyle,
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: 10,
-                marginTop: 5,
-              }}
-            >
-              <View>
-                <Image
-                  source={require('./i_heart_white.png')}
-                  style={styles.footerIcon}
-                />
-                <Text style={styles.fontWhite}>1.1k</Text>
-              </View>
-              <View>
-                <Image
-                  source={require('./i_message_white.png')}
-                  style={styles.footerIcon}
-                />
-                <Text style={styles.fontWhite}>527</Text>
-              </View>
-              <View>
-                <Image
-                  source={require('./i_bookmark_white.png')}
-                  style={{ ...styles.footerIcon, width: 40 }}
-                />
-                <Text style={styles.fontBlack}>527</Text>
-              </View>
-            </View>
-          </View> */}
-        </ScrollView>}
+        {isLoadingPosts ? (
+          <View
+            style={{
+              width: '100%',
+              justifyContent: 'center',
+              height: height - 200,
+            }}
+          >
+            <ActivityIndicator
+              color="white"
+              size="large"
+              style={{ alignSelf: 'center' }}
+            />
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
+            {posts.map((post, key) => onePost(post, key))}
+            {posts.length == 0 && (
+              <Text
+                style={{
+                  color: 'white',
+                  textAlign: 'center',
+                  flex: 1,
+                  marginTop: 200,
+                  fontSize: 20,
+                }}
+              >
+                No Posts
+              </Text>
+            )}
+          </ScrollView>
+        )}
         <View
           style={{
             ...styles.rowStyle,
@@ -939,18 +1149,23 @@ function Home({ navigation, route, userData, accountType }) {
               <Text style={{ fontSize: 7, color: 'white' }}>12</Text>
             </View>
           </View>
-          <View onTouchEnd={() => navigation.navigate('Notification', { id: userData.id})}>
-            <Image source={require('../HomeScreen/i_navbar3.png')} />
-            {
-            notifylen != 0 &&(
-            <View style={styles.iconNumber}>
-              <Text style={{ fontSize: 7, color: 'white' }}>{notifylen}</Text>
-            </View>)
+          <View
+            onTouchEnd={() =>
+              navigation.navigate('Notification', { id: userData.id })
             }
+          >
+            <Image source={require('../HomeScreen/i_navbar3.png')} />
+            {notifylen != 0 && (
+              <View style={styles.iconNumber}>
+                <Text style={{ fontSize: 7, color: 'white' }}>{notifylen}</Text>
+              </View>
+            )}
           </View>
           <Image
             source={require('../HomeScreen/i_navbar4.png')}
-            onTouchEnd={() => navigation.navigate('EditProfile', { data: userData})}
+            onTouchEnd={() =>
+              navigation.navigate('EditProfile', { data: userData })
+            }
           />
         </View>
         {bottomMenuVisible ? (
@@ -1293,6 +1508,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     marginRight: 5,
   },
+
   EmojioneFire: {
     width: 17,
     height: 17,
@@ -1416,9 +1632,18 @@ const styles = StyleSheet.create({
     height: 30,
   },
   hotImage: {
-    width: (width - 100) / 5,
-    height: width / 5.7,
+    width: (width - 100) / 5 + 10,
+    height: width / 6 + 28,
+    borderRadius: 14,
   },
+
+  hotBack: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+
   rowStyle: {
     display: 'flex',
     flexDirection: 'row',
@@ -1440,7 +1665,7 @@ const styles = StyleSheet.create({
   },
   fontWhite: {
     color: 'white',
-    alignSelf: 'center'
+    alignSelf: 'center',
   },
   fontBlack: {
     color: 'black',
@@ -1459,9 +1684,9 @@ const styles = StyleSheet.create({
   },
   bottomPlusIcon: {
     position: 'absolute',
-    bottom: 120,
+    bottom: 150,
     right: 20,
-    backgroundColor: '#1455F5',
+    backgroundColor: 'rgba(20, 85, 245, 0.6)',
     width: 58,
     height: 58,
     borderRadius: 29,
@@ -1497,11 +1722,11 @@ const styles = StyleSheet.create({
   },
 });
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
   accountType: state.accounts.userData.role ? state.accounts.userData.role : 3,
   userData: state.accounts.userData,
 });
-const mapDispatchToProps = dispatch => ({
+const mapDispatchToProps = (dispatch) => ({
   removeUserData: () => removeUserData(dispatch),
 });
 export default connect(mapStateToProps, mapDispatchToProps)(Home);

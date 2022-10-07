@@ -70,7 +70,6 @@ function ChatList({ navigation, userData }) {
       .then((responseData) => {
         if (responseData.error == false) {
           let followers = responseData.data ? responseData.data : [];
-          console.log(followers, "---------------------------")
           setFollowers(followers);
           setTotalF(followers);
         } else {

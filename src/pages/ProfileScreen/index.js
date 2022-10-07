@@ -44,7 +44,7 @@ function ProfileScreen({ navigation, userData, route }) {
         if (responseData.error == false) {
           let fetchFollowInfo = new FormData();
           fetchFollowInfo.append('func', 'fetch_followers');
-          fetchFollowInfo.append('user_id', responseData.data[0].id);
+          fetchFollowInfo.append('user_id', userData.id);
           fetch(accountUrl, {
             method: 'post',
             headers: {
@@ -57,11 +57,7 @@ function ProfileScreen({ navigation, userData, route }) {
               return response1.json();
             })
             .then((responseData1) => {
-              let followers = [];
-              for (var item of responseData1.data) {
-                followers.push(item);
-              }
-              let idx = followers.findIndex((e) => (e.id = userData.id));
+              let idx = responseData1.data?.findIndex((e) => (e.target_user == route.params?.userId));
               if (idx > -1) setStatus(1);
               else setStatus(0);
               setIsLoading(false);

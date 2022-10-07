@@ -46,8 +46,8 @@ const genderItem = [
   { label: 'Not Both', value: 'Not Both' },
 ];
 const categoryDropdownItems = [
-  { label: 'Rock', value: 'Rock' },
-  { label: 'Pop', value: 'Pop' },
+  { label: 'Musician', value: 'Musician' },
+  { label: 'Comedian', value: 'Comedian' },
   { label: 'Rythm', value: 'Rythm' },
   { label: 'Blues', value: 'Blues' },
   { label: 'Music', value: 'Music' },
@@ -170,10 +170,9 @@ export default function SignUp({ navigation }) {
             const user = userCredential.user;
             updateProfile(user, {
               displayName: firstName + ' ' + lastName,
-            })
-              .catch((error) => {
-                alert(error.message);
-              });
+            }).catch((error) => {
+              alert(error.message);
+            });
           })
           .catch((error) => {
             const errorMessage = error.message;
@@ -375,30 +374,32 @@ export default function SignUp({ navigation }) {
               }}
             />
           </View>
-          <View style={{ marginTop: 15 }}>
-            <Text style={styles.Txt594}> Genre </Text>
-            <Dropdown
-              style={[
-                styles.dropdown2,
-                isGenreFocus && { borderColor: 'blue' },
-              ]}
-              placeholderStyle={styles.placeholderStyle}
-              selectedTextStyle={styles.selectedTextStyle}
-              inputSearchStyle={styles.inputSearchStyle}
-              data={categoryDropdownItems}
-              labelField="label"
-              valueField="value"
-              placeholder={!isGenreFocus ? 'Genre' : '...'}
-              searchPlaceholder="Search..."
-              value={dob}
-              onFocus={() => setIsGenreFocus(true)}
-              onBlur={() => setIsGenreFocus(false)}
-              onChange={(item) => {
-                setDob(item.value);
-                setIsGenreFocus(false);
-              }}
-            />
-          </View>
+          {accountType == 'talent' && (
+            <View style={{ marginTop: 15 }}>
+              <Text style={styles.Txt594}> Genre </Text>
+              <Dropdown
+                style={[
+                  styles.dropdown2,
+                  isGenreFocus && { borderColor: 'blue' },
+                ]}
+                placeholderStyle={styles.placeholderStyle}
+                selectedTextStyle={styles.selectedTextStyle}
+                inputSearchStyle={styles.inputSearchStyle}
+                data={categoryDropdownItems}
+                labelField="label"
+                valueField="value"
+                placeholder={!isGenreFocus ? 'Genre' : '...'}
+                searchPlaceholder="Search..."
+                value={dob}
+                onFocus={() => setIsGenreFocus(true)}
+                onBlur={() => setIsGenreFocus(false)}
+                onChange={(item) => {
+                  setDob(item.value);
+                  setIsGenreFocus(false);
+                }}
+              />
+            </View>
+          )}
 
           <View
             style={{ display: 'flex', flexDirection: 'row', marginTop: 20 }}
