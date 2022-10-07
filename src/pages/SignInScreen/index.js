@@ -183,7 +183,7 @@ function LogIn({ navigation, setUserData }) {
           <View style={styles.Group345}>
             <Text
               style={styles.Txt501}
-              onStartShouldSetResponder={() => {
+              onPress={() => {
                 navigation.navigate('ForgotPasswordEmail', {
                   method: 'forgot',
                 });
@@ -211,7 +211,7 @@ function LogIn({ navigation, setUserData }) {
             Dont have an Account{' '}
             <Text
               style={styles.multiple1}
-              onStartShouldSetResponder={() => {
+              onPress={() => {
                 navigation.navigate('SignUp');
               }}
             >

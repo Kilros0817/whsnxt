@@ -122,7 +122,7 @@ export default function SignUp({ navigation }) {
     );
   }, [birthMonth, birthYear]);
 
-  onSignUpClick = () => {
+  const onSignUpClick = () => {
     if (!acceptPolicy) return;
     if (
       accountType == 'talent' &&
@@ -433,7 +433,7 @@ export default function SignUp({ navigation }) {
             Already have an Account{' '}
             <Text
               style={{ color: 'black' }}
-              onStartShouldSetResponder={() => {
+              onPress={() => {
                 navigation.navigate('SignIn');
               }}
             >
