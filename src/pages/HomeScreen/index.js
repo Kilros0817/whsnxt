@@ -8,6 +8,7 @@ import {
   Dimensions,
   Pressable,
   SafeAreaView,
+  PermissionsAndroid,
   Platform,
   TextInput,
   Alert,
@@ -63,7 +64,31 @@ function Home({ navigation, route, userData, accountType }) {
     getHot5();
     fetchPosts();
     getNotification();
+    getLocation();
   }, []);
+
+  const getLocation = async () => {
+    const granted = await PermissionsAndroid.check(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    );
+
+    if (granted) {
+      console.log('You can use the ACCESS_FINE_LOCATION');
+    } else {
+      console.log('ACCESS_FINE_LOCATION permission denied');
+    }
+
+    GetLocation.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 15000,
+    })
+      .then((location) => {
+        console.log(location, '===================');
+      })
+      .catch((error) => {
+        console.log(error, '++++++++++++++++');
+      });
+  };
 
   const getHot5 = async () => {
     let reqdata = new FormData();
@@ -81,8 +106,8 @@ function Home({ navigation, route, userData, accountType }) {
     })
       .then((res) => res.json())
       .then((res) => {
+        console.log(res.data, '=============hot users==============');
         if (res.error == false) {
-          console.log(res.data, '===========================');
           setHot5(res.data);
         } else {
           Toast.show({
@@ -138,7 +163,6 @@ function Home({ navigation, route, userData, accountType }) {
         body: followInfo,
       });
       let responseData3 = await response3.json();
-      console.log('=============================', responseData3);
       for (const item in responseData3) {
         if (!isNaN(item)) {
           followers.push(responseData3[item]);
@@ -580,7 +604,7 @@ function Home({ navigation, route, userData, accountType }) {
             <Text style={styles.fontMenu}>Privacy Policy</Text>
           </Pressable>
           <Pressable
-            onPress={() => navigation.navigate('Setting', { data: userData })}
+            onPress={() => navigation.navigate('Setting')}
           >
             <Text style={styles.fontMenu}>Setting</Text>
           </Pressable>
@@ -1042,59 +1066,61 @@ function Home({ navigation, route, userData, accountType }) {
           style={{
             display: 'flex',
             flexDirection: 'row',
-            justifyContent: 'space-between',
+            marginHorizontal: -6,
           }}
         >
-          {hot5.map((user, index) => (
-            <View
-              onTouchEnd={() =>
-                navigation.navigate('Profile', { userId: user.target_user })
-              }
-            >
-              <ImageBackground
-                source={require('./hotBack.png')}
-                style={styles.hotBack}
+          {hot5 &&
+            hot5.map((user, index) => (
+              <View
+                onTouchEnd={() =>
+                  navigation.navigate('Profile', { userId: user.target_user })
+                }
+                style={{ marginHorizontal: 4 }}
                 key={index}
               >
-                <Image
-                  source={{
-                    uri: imageUrl + 'profile_pic/' + user.profile_pic,
-                  }}
-                  style={styles.hotImage}
-                />
-                <Image
-                  source={require('./emojione_fire.png')}
-                  style={{
-                    width: 14,
-                    height: 14,
-                    position: 'absolute',
-                    left: 17,
-                    top: 18,
-                  }}
-                />
-                <View
-                  style={{
-                    position: 'absolute',
-                    bottom: 20,
-                    textAlign: 'center',
-                  }}
+                <ImageBackground
+                  source={require('./hotBack.png')}
+                  style={styles.hotBack}
                 >
-                  <Text
-                    style={{
-                      backgroundColor: '#1455F5',
-                      borderRadius: 10,
-                      width: 60,
-                      paddingHorizontal: 15,
-                      color: 'white',
+                  <Image
+                    source={{
+                      uri: imageUrl + 'profile_pic/' + user.profile_pic,
                     }}
-                    numberOfLines={1}
+                    style={styles.hotImage}
+                  />
+                  <Image
+                    source={require('./emojione_fire.png')}
+                    style={{
+                      width: 14,
+                      height: 14,
+                      position: 'absolute',
+                      left: 17,
+                      top: 18,
+                    }}
+                  />
+                  <View
+                    style={{
+                      position: 'absolute',
+                      bottom: 20,
+                      textAlign: 'center',
+                    }}
                   >
-                    {user.username}
-                  </Text>
-                </View>
-              </ImageBackground>
-            </View>
-          ))}
+                    <Text
+                      style={{
+                        backgroundColor: '#1455F5',
+                        borderRadius: 10,
+                        width: 60,
+                        paddingHorizontal: 15,
+                        color: 'white',
+                      }}
+                      numberOfLines={1}
+                    >
+                      {user.username != '' ? user.username : user.first_name}
+                    </Text>
+                  </View>
+                </ImageBackground>
+              </View>
+            ))}
         </View>
         {isLoadingPosts ? (
           <View

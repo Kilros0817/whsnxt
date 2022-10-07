@@ -25,10 +25,45 @@ if (bottomNavBarHeight < 0 && Platform.OS === 'ios') bottomNavBarHeight = 0;
 
 function ProfileScreen({ navigation, userData, route }) {
   const [userProfile, setUserProfile] = useState(null);
+  const [userCounts, setUserCounts] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userImages, setUserImages] = useState([]);
   const [status, setStatus] = useState(0);
+
   useEffect(() => {
-    let userInfo = new FormData();
+    getUserInfo();
+    getUserCounts();
+    getUserImages();
+  }, []);
+
+  const getUserCounts = () => {
+    var userInfo = new FormData();
+    userInfo.append('user_id', route.params?.userId);
+    userInfo.append('func', 'fetch_user_counts');
+
+    fetch(accountUrl, {
+      method: 'post',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'multipart/form-data',
+      },
+      body: userInfo,
+    })
+      .then((response) => response.json())
+      .then((responseData) => {
+        if (responseData.error == false) setUserCounts(responseData);
+      })
+      .catch((err) => {
+        console.log(err);
+        Toast.show({
+          type: 'error',
+          text1: 'Sorry, try again.',
+        });
+      });
+  };
+
+  const getUserInfo = () => {
+    var userInfo = new FormData();
     userInfo.append('id', route.params?.userId);
     userInfo.append('func', 'fetchUser_id');
     fetch(accountUrl, {
@@ -57,7 +92,9 @@ function ProfileScreen({ navigation, userData, route }) {
               return response1.json();
             })
             .then((responseData1) => {
-              let idx = responseData1.data?.findIndex((e) => (e.target_user == route.params?.userId));
+              let idx = responseData1.data?.findIndex(
+                (e) => e.target_user == route.params?.userId,
+              );
               if (idx > -1) setStatus(1);
               else setStatus(0);
               setIsLoading(false);
@@ -81,7 +118,37 @@ function ProfileScreen({ navigation, userData, route }) {
           text1: 'Sorry, try again.',
         });
       });
-  }, []);
+  };
+
+  const getUserImages = () => {
+    var userInfo = new FormData();
+    userInfo.append('user_id', route.params?.userId);
+    userInfo.append('func', 'fetchUserImages');
+
+    fetch(accountUrl, {
+      method: 'post',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'multipart/form-data',
+      },
+      body: userInfo,
+    })
+      .then((response) => response.json())
+      .then((responseData) => {
+        console.log(
+          responseData,
+          '====================images=================',
+        );
+        if (responseData.error == false) setUserImages(responseData.data);
+      })
+      .catch((err) => {
+        console.log(err);
+        Toast.show({
+          type: 'error',
+          text1: 'Sorry, try again.',
+        });
+      });
+  };
 
   const onToggleFollow = (newStatus) => {
     let followInfo = new FormData();
@@ -184,7 +251,7 @@ function ProfileScreen({ navigation, userData, route }) {
               onTouchEnd={() => navigation.navigate('UserSearch')}
             />
           </View>
-          {getUserImage( imageUrl + 'profile_pic/' + userProfile?.profile_pic)}
+          {getUserImage(imageUrl + 'profile_pic/' + userProfile?.profile_pic)}
           <Text
             style={{
               fontSize: 12,
@@ -264,132 +331,111 @@ function ProfileScreen({ navigation, userData, route }) {
               <Text style={{ fontSize: 12, color: 'black' }}>Message</Text>
             </View>
           </View>
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-around',
-              marginTop: 30,
-            }}
-          >
+          {userCounts && (
             <View
               style={{
-                flexDirection: 'column',
-                borderRightColor: 'grey',
-                borderRightWidth: 1,
-                width: '25%',
+                flexDirection: 'row',
+                justifyContent: 'space-around',
+                marginTop: 30,
               }}
             >
-              <Text
-                style={{ color: 'grey', fontSize: 12, alignSelf: 'center' }}
+              <View
+                style={{
+                  flexDirection: 'column',
+                  borderRightColor: 'grey',
+                  borderRightWidth: 1,
+                  width: '25%',
+                }}
               >
-                15
-              </Text>
-              <Text
-                style={{ color: 'white', fontSize: 12, alignSelf: 'center' }}
+                <Text
+                  style={{ color: 'grey', fontSize: 12, alignSelf: 'center' }}
+                >
+                  {userCounts.user_post_count}
+                </Text>
+                <Text
+                  style={{ color: 'white', fontSize: 12, alignSelf: 'center' }}
+                >
+                  Posts
+                </Text>
+              </View>
+              <View
+                style={{
+                  flexDirection: 'column',
+                  borderRightColor: 'grey',
+                  borderRightWidth: 1,
+                  width: '25%',
+                }}
               >
-                Posts
-              </Text>
+                <Text
+                  style={{ color: 'grey', fontSize: 12, alignSelf: 'center' }}
+                >
+                  {userCounts.user_follower_count}
+                </Text>
+                <Text
+                  style={{ color: 'white', fontSize: 12, alignSelf: 'center' }}
+                >
+                  Followers
+                </Text>
+              </View>
+              <View
+                style={{
+                  flexDirection: 'column',
+                  borderRightColor: 'grey',
+                  borderRightWidth: 1,
+                  width: '25%',
+                }}
+              >
+                <Text
+                  style={{ color: 'grey', fontSize: 12, alignSelf: 'center' }}
+                >
+                  {userCounts.user_following_count}
+                </Text>
+                <Text
+                  style={{ color: 'white', fontSize: 12, alignSelf: 'center' }}
+                >
+                  Following
+                </Text>
+              </View>
+              <View
+                style={{
+                  flexDirection: 'column',
+                  borderRightColor: 'grey',
+                  borderRightWidth: 0,
+                  width: '25%',
+                }}
+              >
+                <Text
+                  style={{ color: 'grey', fontSize: 12, alignSelf: 'center' }}
+                >
+                  {userCounts.user_likes_count}
+                </Text>
+                <Text
+                  style={{ color: 'white', fontSize: 12, alignSelf: 'center' }}
+                >
+                  Likes
+                </Text>
+              </View>
             </View>
-            <View
-              style={{
-                flexDirection: 'column',
-                borderRightColor: 'grey',
-                borderRightWidth: 1,
-                width: '25%',
-              }}
-            >
-              <Text
-                style={{ color: 'grey', fontSize: 12, alignSelf: 'center' }}
-              >
-                15k
-              </Text>
-              <Text
-                style={{ color: 'white', fontSize: 12, alignSelf: 'center' }}
-              >
-                Followers
-              </Text>
-            </View>
-            <View
-              style={{
-                flexDirection: 'column',
-                borderRightColor: 'grey',
-                borderRightWidth: 1,
-                width: '25%',
-              }}
-            >
-              <Text
-                style={{ color: 'grey', fontSize: 12, alignSelf: 'center' }}
-              >
-                23k
-              </Text>
-              <Text
-                style={{ color: 'white', fontSize: 12, alignSelf: 'center' }}
-              >
-                Following
-              </Text>
-            </View>
-            <View
-              style={{
-                flexDirection: 'column',
-                borderRightColor: 'grey',
-                borderRightWidth: 0,
-                width: '25%',
-              }}
-            >
-              <Text
-                style={{ color: 'grey', fontSize: 12, alignSelf: 'center' }}
-              >
-                23k
-              </Text>
-              <Text
-                style={{ color: 'white', fontSize: 12, alignSelf: 'center' }}
-              >
-                Likes
-              </Text>
-            </View>
-          </View>
+          )}
+
           <ScrollView style={{ marginTop: 50, marginLeft: -20, width: width }}>
             <View style={{ flexDirection: 'row' }}>
-              <Image
-                source={require('./portfolio1.png')}
-                style={{ width: width / 3, aspectRatio: 1, height: 'auto' }}
-              />
-              <Image
-                source={require('./portfolio2.png')}
-                style={{ width: width / 3, aspectRatio: 1, height: 'auto' }}
-              />
-              <Image
-                source={require('./portfolio3.png')}
-                style={{ width: width / 3, aspectRatio: 1, height: 'auto' }}
-              />
-            </View>
-            <View style={{ flexDirection: 'row' }}>
-              <Image
-                source={require('./portfolio4.png')}
-                style={{ width: width / 3, aspectRatio: 1, height: 'auto' }}
-              />
-              <Image
-                source={require('./portfolio5.png')}
-                style={{ width: width / 3, aspectRatio: 1, height: 'auto' }}
-              />
-              <Image
-                source={require('./portfolio6.png')}
-                style={{ width: width / 3, aspectRatio: 1, height: 'auto' }}
-              />
-            </View>
-            <View style={{ flexDirection: 'row' }}>
-              <Image
-                source={require('./portfolio7.png')}
-                style={{ width: width / 3, aspectRatio: 1, height: 'auto' }}
-              />
-              <Image
-                source={require('./portfolio8.png')}
-                style={{ width: width / 3, aspectRatio: 1, height: 'auto' }}
-              />
-              <Image
-                source={require('./portfolio9.png')}
-                style={{ width: width / 3, aspectRatio: 1, height: 'auto' }}
-              />
+              {userImages &&
+                userImages.map((image, index) => (
+                  <Image
+                    key={index}
+                    source={{
+                      uri: imageUrl + 'image/' + image.image,
+                    }}
+                    style={{
+                      width: width / 3,
+                      aspectRatio: 1,
+                      height: 'auto',
+                      borderColor: 'white',
+                      borderWidth: 1,
+                    }}
+                  />
+                ))}
             </View>
           </ScrollView>
           <View
